@@ -1,40 +1,189 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rulzz Xiterzx | Ultra Control</title>
+<!-- RulzzXit Pro Store + Admin Key + WhatsApp Checkout -->
+<div style="font-family:Arial,sans-serif; background:#0f172a;color:white;padding:20px;border-radius:15px;">
 
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <h2 style="text-align:center;">RulzzXit Store</h2>
 
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-background:#030014;
-color:#fff;
-font-family:Poppins,system-ui;
-overflow-x:hidden;
-}
+  <!-- Produk Grid -->
+  <div id="produkGrid" style="display:flex;flex-wrap:wrap;gap:15px;margin-bottom:30px;"></div>
 
-/* ===== PARTICLE CANVAS ===== */
-#particles{
-position:fixed;
-inset:0;
-z-index:-5;
-}
+  <!-- Ringkasan -->
+  <div style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:20px;">
+    <h3>Ringkasan Produk</h3>
+    <div id="ringkasanProduk"></div>
+    <b>Total: Rp <span id="totalHarga">0</span></b><br>
+    <button onclick="checkoutWhatsApp()" style="margin-top:5px;background:#22c55e;color:white;padding:8px;border:none;border-radius:5px;">Checkout via WhatsApp</button>
+  </div>
 
-/* ===== HERO ===== */
-.hero{
-min-height:100vh;
-display:flex;
-align-items:center;
-justify-content:center;
-padding:80px 8%;
-position:relative;
-}
+  <!-- Admin Floating Panel -->
+  <div id="adminPanel" style="position:fixed;bottom:20px;right:20px;width:300px;background:#334155;padding:15px;border-radius:10px;display:none;z-index:9999;">
+    <h3>Admin Panel</h3>
+    <input type="hidden" id="productId">
+    <input type="text" id="adminKeyInput" placeholder="Masukkan key admin" style="width:100%;margin:5px 0;padding:8px;border-radius:8px;border:none;">
+    <button onclick="verifyKey()" style="background:#3b82f6;color:white;width:100%;padding:8px;margin-bottom:10px;border:none;border-radius:5px;">Verifikasi Key</button>
 
-.hero-wrap{
+    <div id="adminControls" style="display:none;">
+      <input type="text" id="name" placeholder="Nama Produk" style="width:100%;margin:5px 0;padding:8px;border-radius:8px;border:none;">
+      <input type="number" id="price" placeholder="Harga Produk" style="width:100%;margin:5px 0;padding:8px;border-radius:8px;border:none;">
+      <input type="text" id="desc" placeholder="Deskripsi Produk" style="width:100%;margin:5px 0;padding:8px;border-radius:8px;border:none;">
+      <button onclick="saveProduct()" style="background:#22c55e;color:white;padding:10px;border:none;border-radius:8px;width:100%;margin-top:5px;">Simpan Produk</button>
+      <div id="productList" style="margin-top:20px;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+  // ===== Firebase Config =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyAx9bUgPOcBxSstDB5eRbT85BLybffakak",
+    authDomain: "rulzzxit.firebaseapp.com",
+    databaseURL: "https://rulzzxit-default-rtdb.firebaseio.com",
+    projectId: "rulzzxit",
+    storageBucket: "rulzzxit.firebasestorage.app",
+    messagingSenderId: "513082272490",
+    appId: "1:513082272490:web:e23e8a7a6392fa43108593"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database().ref("products");
+
+  // ===== Admin Key (ubah sesuai keinginanmu) =====
+  const ADMIN_KEY = "RULZZ123"; // <---- isi sendiri, kalo mau ganti tinggal ubah disini
+
+  let adminVerified = false;
+
+  function verifyKey(){
+    const input = document.getElementById("adminKeyInput").value;
+    if(input === ADMIN_KEY){
+      adminVerified = true;
+      document.getElementById("adminControls").style.display = "block";
+      alert("Admin Verified ✅");
+    }else{
+      alert("Key Salah ❌");
+    }
+  }
+
+  // ===== Produk Lifetime =====
+  function saveProduct() {
+    if(!adminVerified) return alert("Masukkan key admin dulu!");
+    const id = document.getElementById("productId").value;
+    const name = document.getElementById("name").value;
+    const price = Number(document.getElementById("price").value);
+    const desc = document.getElementById("desc").value;
+
+    if(!name || !price) return alert("Isi nama & harga dulu!");
+
+    if(id){
+      db.child(id).update({name, price, desc});
+    }else{
+      db.push({name, price, desc});
+    }
+
+    clearForm();
+  }
+
+  function deleteProduct(id){
+    if(!adminVerified) return alert("Masukkan key admin dulu!");
+    if(confirm("Hapus produk ini?")){
+      db.child(id).remove();
+    }
+  }
+
+  function editProduct(id,name,price,desc){
+    document.getElementById("productId").value = id;
+    document.getElementById("name").value = name;
+    document.getElementById("price").value = price;
+    document.getElementById("desc").value = desc;
+  }
+
+  function clearForm(){
+    document.getElementById("productId").value = "";
+    document.getElementById("name").value = "";
+    document.getElementById("price").value = "";
+    document.getElementById("desc").value = "";
+  }
+
+  // ===== Cart & Ringkasan =====
+  const cart = {};
+
+  function addToCart(id){
+    if(cart[id]) cart[id]++;
+    else cart[id]=1;
+    renderRingkasan();
+  }
+
+  function renderRingkasan(){
+    const ringkasanDiv = document.getElementById("ringkasanProduk");
+    ringkasanDiv.innerHTML = "";
+    let total = 0;
+    db.once("value").then(snapshot=>{
+      const data = snapshot.val() || {};
+      for(let id in cart){
+        const p = data[id];
+        if(p){
+          const qty = cart[id];
+          const subtotal = qty * p.price;
+          total += subtotal;
+          ringkasanDiv.innerHTML += `<div>${p.name} x ${qty} = Rp ${subtotal}</div>`;
+        }
+      }
+      document.getElementById("totalHarga").innerText = total;
+    });
+  }
+
+  // ===== Checkout WhatsApp =====
+  function checkoutWhatsApp(){
+    let text = "Halo, saya mau membeli:\n";
+    for(let id in cart){
+      const qty = cart[id];
+      text += `${qty} x ${id}\n`;
+    }
+    const waNumber = "6283139460435"; // nomor tujuan
+    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, "_blank");
+  }
+
+  // ===== Render Produk Admin + Grid =====
+  db.on("value", snapshot=>{
+    const data = snapshot.val() || {};
+    const productList = document.getElementById("productList");
+    const produkGrid = document.getElementById("produkGrid");
+
+    productList.innerHTML = "";
+    produkGrid.innerHTML = "";
+
+    for(let id in data){
+      const p = data[id];
+
+      // Admin Panel
+      if(adminVerified){
+        productList.innerHTML += `
+          <div style="background:#475569;padding:10px;margin-bottom:10px;border-radius:8px;">
+            <b>${p.name}</b><br>Rp ${p.price}<br>
+            <small>${p.desc || ""}</small><br>
+            <button onclick="editProduct('${id}','${p.name}','${p.price}','${p.desc || ""}')" style="background:#3b82f6;color:white;margin-top:5px;padding:5px;border:none;border-radius:5px;">Edit</button>
+            <button onclick="deleteProduct('${id}')" style="background:#ef4444;color:white;margin-top:5px;padding:5px;border:none;border-radius:5px;">Hapus</button>
+          </div>
+        `;
+      }
+
+      // Produk Grid untuk user
+      produkGrid.innerHTML += `
+        <div style="background:#1e293b;padding:10px;border-radius:10px;width:calc(33% - 10px);box-sizing:border-box;">
+          <b>${p.name}</b><br>Rp ${p.price}<br>
+          <small>${p.desc || ""}</small><br>
+          <button onclick="addToCart('${id}')" style="background:#22c55e;color:white;padding:5px;margin-top:5px;border:none;border-radius:5px;">Tambah ke Keranjang</button>
+        </div>
+      `;
+    }
+
+    renderRingkasan();
+  });
+
+  // ===== Tampilkan Admin Panel Floating =====
+  document.getElementById("adminPanel").style.display = "block";
+</script>.hero-wrap{
 display:flex;
 align-items:center;
 gap:60px;
